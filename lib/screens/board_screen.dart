@@ -20,6 +20,8 @@ class _BoardScreenState extends State<BoardScreen> {
   final _formKey = GlobalKey<FormState>();
   late Stream<List<Message>> _messages;
   bool _posting = false;
+  String? _postId;
+  String? _postText;
   bool _signingOut = false;
   final Set<String> _pending = {};
 
@@ -38,15 +40,35 @@ class _BoardScreenState extends State<BoardScreen> {
   Future<void> _post() async {
     if (_posting || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
+    final text = _text.text.trim();
+    // An unchanged draft keeps its ID after a failed/uncertain write.
+    if (_postId == null || _postText != text) {
+      _postId = _service.newMessageId();
+      _postText = text;
+    }
+    final messageId = _postId!;
     setState(() {
       _posting = true;
     });
     try {
-      await _service.postMessage(
+      Future<void> send() => _service.postMessage(
+        messageId: messageId,
         authorUid: widget.user.uid,
         authorName: widget.profile.fullName,
-        text: _text.text,
+        text: text,
       );
+      const duplicateTest = bool.fromEnvironment('TEST_DUPLICATE_POSTS');
+      const localEmulators = bool.fromEnvironment('USE_EMULATORS');
+      if (duplicateTest && localEmulators) {
+        await Future.wait([send(), send()]);
+        debugPrint(
+          'Spice 4: two calls completed with message ID $messageId. Verify one document in Emulator UI.',
+        );
+      } else {
+        await send();
+      }
+      _postId = null;
+      _postText = null;
       if (mounted) _text.clear();
     } on FirebaseException {
       _error('Could not post. Check your connection and message permissions.');

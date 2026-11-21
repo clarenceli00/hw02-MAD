@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function nonempty(value) { return value is string && value.size() > 0; }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['uid', 'firstName', 'lastName', 'role', 'registrationDateTime'])
+        && request.resource.data.keys().hasOnly(['uid', 'firstName', 'lastName', 'role', 'registrationDateTime'])
+        && request.resource.data.uid == uid
+        && nonempty(request.resource.data.firstName)
+        && nonempty(request.resource.data.lastName)
+        && nonempty(request.resource.data.role)
+        && request.resource.data.registrationDateTime is timestamp
+        && ((!exists(/databases/$(database)/documents/users/$(uid))
+              && request.resource.data.registrationDateTime == request.time)
+            || (exists(/databases/$(database)/documents/users/$(uid))
+              && (request.resource.data.registrationDateTime == resource.data.registrationDateTime
+                || (!(resource.data.get('registrationDateTime', null) is timestamp)
+                  && request.resource.data.registrationDateTime == request.time))));
+    }
+
+    match /messages/{messageId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasAll(['authorUid', 'authorName', 'text', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'text', 'createdAt'])
+        && request.resource.data.authorUid == request.auth.uid
+        && nonempty(request.resource.data.authorName)
+        && nonempty(request.resource.data.text)
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn() && resource.data.authorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'editedAt'])
+        && nonempty(request.resource.data.text)
+        && request.resource.data.editedAt == request.time;
+      allow delete: if signedIn() && resource.data.authorUid == request.auth.uid;
+    }
+  }
+}

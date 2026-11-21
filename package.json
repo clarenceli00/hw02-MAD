@@ -1,0 +1,8 @@
+{
+  "name": "hw02-firestore-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test:rules": "node --test --test-concurrency=1 test/firestore.rules.test.mjs" },
+  "devDependencies": { "@firebase/rules-unit-testing": "^5.0.0", "firebase": "^12.0.0" },
+  "overrides": { "@grpc/grpc-js": "^1.13.6" }
+}

@@ -4,18 +4,32 @@ import 'message.dart';
 
 class BoardService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  String newMessageId() => _db.collection('messages').doc().id;
 
   /// CREATE — uid-owned, server-timestamped
   Future<void> postMessage({
+    required String messageId,
     required String authorUid,
     required String authorName,
     required String text,
   }) async {
-    await _db.collection('messages').add({
-      'authorUid': authorUid,
-      'authorName': authorName,
-      'text': text.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+    if (text.trim().isEmpty) throw ArgumentError('Message cannot be empty.');
+    final reference = _db.collection('messages').doc(messageId);
+    await _db.runTransaction((transaction) async {
+      final existing = await transaction.get(reference);
+      if (existing.exists) {
+        if (existing.data()?['authorUid'] != authorUid ||
+            existing.data()?['text'] != text.trim()) {
+          throw StateError('This message ID belongs to a different post.');
+        }
+        return;
+      }
+      transaction.set(reference, {
+        'authorUid': authorUid,
+        'authorName': authorName,
+        'text': text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
