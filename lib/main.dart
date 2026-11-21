@@ -1,7 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'firebase_options.dart';
 import 'auth_gate.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MaterialApp(home: SplashScreen()));
@@ -22,10 +25,29 @@ class _SplashScreenState extends State<SplashScreen> {
     _initialization = _initialize();
   }
 
-  Future<FirebaseApp> _initialize() {
-    return Firebase.initializeApp(
+  Future<FirebaseApp> _initialize() async {
+    final app = await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    const useEmulators = bool.fromEnvironment('USE_EMULATORS');
+
+    if (useEmulators) {
+      // Android emulator → your computer.
+      final defaultHost = !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+          ? '10.0.2.2'
+          : '127.0.0.1';
+      const configuredHost = String.fromEnvironment('EMULATOR_HOST');
+      final host = configuredHost.isEmpty ? defaultHost : configuredHost;
+
+      await FirebaseAuth.instance.useAuthEmulator(host, 9099);
+
+      FirebaseFirestore.instance.settings =
+          const Settings(persistenceEnabled: false);
+      FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
+    }
+
+    return app;
   }
 
   @override

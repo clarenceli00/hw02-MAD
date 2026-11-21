@@ -52,6 +52,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await _auth.signIn(email: _email.text, password: _password.text);
       }
     } on FirebaseAuthException catch (error) {
+      if (const bool.fromEnvironment('USE_EMULATORS')) {
+        debugPrint('Local authentication failed: ${error.code}');
+      }
       if (mounted) widget.onRegistrationChanged?.call(false);
       final message = switch (error.code) {
         'network-request-failed' => 'Check your connection and try again.',
