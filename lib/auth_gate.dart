@@ -12,6 +12,7 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   final AuthService _auth = AuthService();
+  bool _registering = false;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,13 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
         final user = snapshot.data;
-        if (user == null) return const LoginScreen();
+        if (user == null || _registering) {
+          return LoginScreen(
+            onRegistrationChanged: (value) {
+              if (mounted) setState(() { _registering = value; });
+            },
+          );
+        }
         return ProfileGate(key: ValueKey(user.uid), user: user);
       },
     );
